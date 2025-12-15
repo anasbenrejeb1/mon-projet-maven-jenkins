@@ -1,0 +1,52 @@
+# Service Spring Boot
+apiVersion: v1
+kind: Service
+metadata:
+  name: student-management-service
+  namespace: student-management
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      targetPort: 8089
+      nodePort: 32640
+  selector:
+    app: student-management
+---
+# Deployment Spring Boot
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: student-management-deployment
+  namespace: student-management
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: student-management
+  template:
+    metadata:
+      labels:
+        app: student-management
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox
+          command: ['sh', '-c', 'until nc -z mysql-service 3306; do echo waiting for mysql; sleep 3; done']
+      containers:
+        - name: student-management
+          image: wafachabbi/student-management:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:mysql://mysql-service:3306/student_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezon>
+            - name: SPRING_DATASOURCE_USERNAME
+              value: root
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: mysql-root-password
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: com.mysql.cj.jdbc.Driver
